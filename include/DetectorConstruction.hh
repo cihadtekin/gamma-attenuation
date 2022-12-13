@@ -5,12 +5,12 @@
 #include "globals.hh"
 
 class G4VPhysicalVolume;
-class G4LogicalVolume;
-
-/// Detector construction class to define materials and geometry.
+class G4LogicalVolume; 
+class G4Box;
 
 namespace GammaAttenuation
 {
+class DetectorMessenger;
 
 class DetectorConstruction : public G4VUserDetectorConstruction
 {
@@ -20,10 +20,22 @@ class DetectorConstruction : public G4VUserDetectorConstruction
 
     G4VPhysicalVolume* Construct() override;
 
-    G4LogicalVolume* GetScoringVolume() const { return fScoringVolume; }
+    G4Box* GetAbsorberSolid() const { return fAbsorberSolid; }
+    G4VPhysicalVolume* GetAbsorberPhysical() const { return fAbsorberPhysical; }
 
-  protected:
-    G4LogicalVolume* fScoringVolume = nullptr;
+    void SetAbsorberMaterial(G4String);
+    G4String GetAbsorberMaterial() const { return fAbsorberMaterial; }
+
+    void SetAbsorberTickness(G4double);
+    G4double GetAbsorberTickness() const { return fAbsorberTickness; }
+
+  private:
+    DetectorMessenger* fDetectorMessenger;
+    G4String fAbsorberMaterial;
+    G4double fAbsorberTickness;
+    G4LogicalVolume* fAbsorberLogical;
+    G4Box* fAbsorberSolid;
+    G4VPhysicalVolume* fAbsorberPhysical;
 };
 
 }

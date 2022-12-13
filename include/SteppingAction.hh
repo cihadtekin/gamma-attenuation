@@ -5,9 +5,8 @@
 #include "globals.hh"
 
 class G4LogicalVolume;
-
-/// Stepping action class
-///
+class G4VPhysicalVolume;
+class G4Box;
 
 namespace GammaAttenuation
 {
@@ -25,7 +24,8 @@ class SteppingAction : public G4UserSteppingAction
 
   private:
     EventAction* fEventAction = nullptr;
-    G4LogicalVolume* fScoringVolume = nullptr;
+    G4VPhysicalVolume* fAbsorberPhysical = nullptr;
+    G4Box* fAbsorberSolid = nullptr;
 };
 
 }

@@ -7,12 +7,6 @@
 
 class G4Run;
 
-/// Run action class
-///
-/// In EndOfRunAction(), it calculates the dose in the selected volume
-/// from the energy deposit accumulated via stepping and event actions.
-/// The computed dose is then printed on the screen.
-
 namespace GammaAttenuation
 {
 
@@ -25,11 +19,16 @@ class RunAction : public G4UserRunAction
     void BeginOfRunAction(const G4Run*) override;
     void   EndOfRunAction(const G4Run*) override;
 
-    void AddEdep (G4double edep);
+    void AddHitCount(G4int _hitCount) {
+      hitCount += _hitCount; 
+    }
+    void AddBeamCount(G4int _beamCount) {
+      beamCount += _beamCount; 
+    }
 
   private:
-    G4Accumulable<G4double> fEdep = 0.;
-    G4Accumulable<G4double> fEdep2 = 0.;
+    G4Accumulable<G4int> hitCount = 0;
+    G4Accumulable<G4int> beamCount = 0;
 };
 
 }

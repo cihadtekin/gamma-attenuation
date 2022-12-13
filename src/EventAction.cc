@@ -16,13 +16,15 @@ EventAction::~EventAction()
 
 void EventAction::BeginOfEventAction(const G4Event*)
 {
-  fEdep = 0.;
+  hitCount = 0;
+  beamCount = 0;
 }
 
 void EventAction::EndOfEventAction(const G4Event*)
 {
   // accumulate statistics in run action
-  fRunAction->AddEdep(fEdep);
+  fRunAction->AddHitCount(hitCount);
+  fRunAction->AddBeamCount(beamCount);
 }
 
 }

@@ -4,8 +4,6 @@
 #include "G4UserEventAction.hh"
 #include "globals.hh"
 
-/// Event action class
-
 namespace GammaAttenuation
 {
 
@@ -20,11 +18,18 @@ class EventAction : public G4UserEventAction
     void BeginOfEventAction(const G4Event* event) override;
     void EndOfEventAction(const G4Event* event) override;
 
-    void AddEdep(G4double edep) { fEdep += edep; }
+    void IncreaseHitCount() {
+      hitCount++;
+    }
+
+    void IncreaseBeamCount() {
+      beamCount++;
+    }
 
   private:
     RunAction* fRunAction = nullptr;
-    G4double   fEdep = 0.;
+    G4int      hitCount = 0;
+    G4int      beamCount = 0;
 };
 
 }

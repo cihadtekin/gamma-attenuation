@@ -1,12 +1,10 @@
 #include "DetectorConstruction.hh"
 
+#include "DetectorMessenger.hh"
+#include "G4Material.hh"
 #include "G4RunManager.hh"
 #include "G4NistManager.hh"
 #include "G4Box.hh"
-#include "G4Cons.hh"
-#include "G4Orb.hh"
-#include "G4Sphere.hh"
-#include "G4Trd.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
 #include "G4SystemOfUnits.hh"
@@ -15,10 +13,53 @@ namespace GammaAttenuation
 {
 
 DetectorConstruction::DetectorConstruction()
-{}
+: G4VUserDetectorConstruction(),
+  fAbsorberMaterial("G4_Fe"),
+  fAbsorberTickness(20 * mm),
+  fDetectorMessenger(0),
+  fAbsorberLogical(0),
+  fAbsorberSolid(0),
+  fAbsorberPhysical(0)
+{
+  fDetectorMessenger = new DetectorMessenger(this);
+}
 
 DetectorConstruction::~DetectorConstruction()
-{}
+{
+  delete fDetectorMessenger;
+}
+
+void DetectorConstruction::SetAbsorberMaterial(G4String materialChoice)
+{
+  G4NistManager* nist = G4NistManager::Instance();
+  G4Material* absorberMaterialObject = nist->FindOrBuildMaterial(materialChoice);
+
+  if (absorberMaterialObject)
+  {
+    fAbsorberMaterial = materialChoice;
+    fAbsorberLogical->SetMaterial(absorberMaterialObject);
+  }
+  else
+  { 
+    G4cerr 
+      << materialChoice << " is not defined. - Command is ignored." << G4endl; 
+  }
+}
+
+void DetectorConstruction::SetAbsorberTickness(G4double tickness)
+{
+  if (tickness < 200 && tickness > 0) 
+  {
+    fAbsorberTickness = tickness;
+    fAbsorberSolid->SetZHalfLength(tickness/2.);
+    G4RunManager::GetRunManager()->GeometryHasBeenModified();
+    G4cout << "tickness set to " << tickness << G4endl;
+  }
+  else
+  {
+    G4cerr << "tickness needs to be in range of 0-50mm" << G4endl;
+  }
+}
 
 G4VPhysicalVolume* DetectorConstruction::Construct()
 {
@@ -42,7 +83,7 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     world_mat,        //its material
     "World"           //its name
   );
-  G4VPhysicalVolume* world_phys = new G4PVPlacement(
+  G4VPhysicalVolume* fWorldPhysical = new G4PVPlacement(
     0,                //no rotation
     G4ThreeVector(),  //at (0,0,0)
     world_logic,      //its logical volume
@@ -53,35 +94,32 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     checkOverlaps     //overlaps checking
   );
 
-  // Matrial
-  G4double material_thickness = 30*mm;
-  G4ThreeVector material_position = G4ThreeVector(0, 0, world_sizeZ/2 - 5*cm);
-  G4Material* material_mat = nist->FindOrBuildMaterial("G4_Al");
-  G4Box* material_solid = new G4Box(
+  // Absorber
+  G4ThreeVector absorber_position = G4ThreeVector(0, 0, 0);
+  G4Material* absorber_material = nist->FindOrBuildMaterial(fAbsorberMaterial);
+  fAbsorberSolid = new G4Box(
     "World",          //its name
     0.5*world_sizeXY, //size x
     0.5*world_sizeXY, //size y 
-    0.5*material_thickness   //size z
+    0.5*fAbsorberTickness   //size z
   );
-  G4LogicalVolume* material_logic = new G4LogicalVolume(
-    material_solid,
-    material_mat,
-    "Material"
+  fAbsorberLogical = new G4LogicalVolume(
+    fAbsorberSolid,
+    absorber_material,
+    "Absorber"
   );
-  new G4PVPlacement(
+  fAbsorberPhysical = new G4PVPlacement(
     0,
-    material_position,
-    material_logic,
-    "Material",
+    absorber_position,
+    fAbsorberLogical,
+    "Absorber",
     world_logic,
     false,
     0,
     checkOverlaps
   );
 
-  fScoringVolume = material_logic;
-
-  return world_phys;
+  return fWorldPhysical;
 }
 
 }

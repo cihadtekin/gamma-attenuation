@@ -16,9 +16,8 @@ using namespace GammaAttenuation;
 int main(int argc, char** argv)
 {
   // Detect interactive mode (if no arguments) and define UI session
-  //
   G4UIExecutive* ui = nullptr;
-  if ( argc == 1 ) { ui = new G4UIExecutive(argc, argv); }
+  if (argc == 1) { ui = new G4UIExecutive(argc, argv); }
 
   // Optionally: choose a different Random engine...
   // G4Random::setTheEngine(new CLHEP::MTwistEngine);
@@ -47,7 +46,7 @@ int main(int argc, char** argv)
 
   // Initialize visualization
   //
-  G4VisManager* visManager = new G4VisExecutive;
+  G4VisManager* visManager = new G4VisExecutive();
   // G4VisExecutive can take a verbosity argument - see /vis/verbose guidance.
   // G4VisManager* visManager = new G4VisExecutive("Quiet");
   visManager->Initialize();
@@ -55,17 +54,17 @@ int main(int argc, char** argv)
   // Get the pointer to the User Interface manager
   G4UImanager* UImanager = G4UImanager::GetUIpointer();
 
-  // Process macro or start UI session
-  //
-  if ( ! ui ) {
-    // batch mode
+  runManager->Initialize();
+
+  // Process macro 
+  if (!ui) {
     G4String command = "/control/execute ";
     G4String fileName = argv[1];
     UImanager->ApplyCommand(command+fileName);
-  }
-  else {
-    // interactive mode
-    UImanager->ApplyCommand("/control/execute init_vis.mac");
+  } else { // interactive mode
+    //UImanager->ApplyCommand("/control/execute init_vis.mac");
+    runManager->BeamOn(1);
+    UImanager->ApplyCommand("/control/execute vis.mac");
     ui->SessionStart();
     delete ui;
   }
@@ -78,4 +77,3 @@ int main(int argc, char** argv)
   delete visManager;
   delete runManager;
 }
-
