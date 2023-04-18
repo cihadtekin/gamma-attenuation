@@ -21,15 +21,17 @@ void ActionInitialization::BuildForMaster() const
 
 void ActionInitialization::Build() const
 {
-  SetUserAction(new PrimaryGeneratorAction);
-
+  PrimaryGeneratorAction* generatorAction = new PrimaryGeneratorAction;
   RunAction* runAction = new RunAction;
-  SetUserAction(runAction);
-
   EventAction* eventAction = new EventAction(runAction);
-  SetUserAction(eventAction);
+  SteppingAction* steppingAction = new SteppingAction(eventAction);
 
-  SetUserAction(new SteppingAction(eventAction));
+  steppingAction->SetParticleGun(generatorAction->GetParticleGun());
+
+  SetUserAction(generatorAction);
+  SetUserAction(runAction);
+  SetUserAction(eventAction);
+  SetUserAction(steppingAction);
 }
 
 }

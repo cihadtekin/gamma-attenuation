@@ -42,6 +42,7 @@ set(GAMMA_ATTENUATION_SCRIPTS
   init_vis.mac
   vis.mac
   run.mac
+  run-2.mac
   )
 
 foreach(_script ${GAMMA_ATTENUATION_SCRIPTS})

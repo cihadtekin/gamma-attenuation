@@ -27,8 +27,8 @@ class RunAction : public G4UserRunAction
     }
 
   private:
-    G4Accumulable<G4int> hitCount = 0;
-    G4Accumulable<G4int> beamCount = 0;
+    G4Accumulable<G4int> hitCount = G4Accumulable<G4int>("hitCount", 0);
+    G4Accumulable<G4int> beamCount = G4Accumulable<G4int>("beamCount", 0);
 };
 
 }

@@ -53,7 +53,7 @@ void DetectorConstruction::SetAbsorberTickness(G4double tickness)
     fAbsorberTickness = tickness;
     fAbsorberSolid->SetZHalfLength(tickness/2.);
     G4RunManager::GetRunManager()->GeometryHasBeenModified();
-    G4cout << "tickness set to " << tickness << G4endl;
+    // G4cout << "tickness set to " << tickness << G4endl;
   }
   else
   {

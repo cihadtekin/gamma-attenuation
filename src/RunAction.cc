@@ -44,6 +44,7 @@ void RunAction::EndOfRunAction(const G4Run* run)
   accumulableManager->Merge();
   
   if (IsMaster()) {
+    return;
     G4cout << "initial: " << beamCount.GetValue() << G4endl;
     G4cout << "result: " << hitCount.GetValue() << G4endl;
   }

@@ -7,6 +7,7 @@
 #include "G4Box.hh"
 #include "G4RunManager.hh"
 #include "G4LogicalVolume.hh"
+#include "G4ParticleGun.hh"
 
 namespace GammaAttenuation
 {
@@ -82,7 +83,8 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   const G4ThreeVector momentumDirection = track->GetMomentumDirection();
   const double Pz = momentumDirection.getZ();
   const G4double detectorPosition = 150;// TODO: fetch it from the geometry
-  const G4double originalKineticEnergy = .5;// TODO: fetch it from definitions
+  const G4double originalKineticEnergy = fParticleGun->GetParticleEnergy();
+  // const G4double originalKineticEnergy = .5;// TODO: fetch it from definitions
 
   if (Pz < 0 || kineticEnergy != originalKineticEnergy) {
     return;

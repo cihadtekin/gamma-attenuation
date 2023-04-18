@@ -1,5 +1,6 @@
 #include "DetectorConstruction.hh"
 #include "ActionInitialization.hh"
+#include "G4AccumulableManager.hh"
 
 #include "G4RunManagerFactory.hh"
 #include "G4SteppingVerbose.hh"
@@ -10,8 +11,38 @@
 #include "G4UIExecutive.hh"
 
 #include "Randomize.hh"
+#include <fstream>
 
 using namespace GammaAttenuation;
+
+void calculateHVL(G4RunManager * runManager, G4UImanager * uiManager)
+{
+  G4AccumulableManager* accumulableManager = G4AccumulableManager::Instance();
+
+  std::ofstream outfile("result.csv");
+  int initialBeamCount = 10000;
+  int measurementCount = 18;
+  double min = 1, max = 10;
+  double deltaT = (max - min) / measurementCount;
+
+  outfile << "thickness (cm);count" << std::endl;
+
+  for (size_t i = 0; i <= measurementCount; i++)
+  {
+    double thickness = min + i * deltaT;
+
+    uiManager->ApplyCommand("/run/initialize");
+    uiManager->ApplyCommand("/GammaAttenuation/setTickness " + std::to_string(thickness) + " cm");
+    uiManager->ApplyCommand("/run/beamOn " + std::to_string(initialBeamCount));
+
+    G4Accumulable<G4int>* hitCount = accumulableManager->GetAccumulable<G4int>("hitCount");
+    G4cout << "thickness: " << std::to_string(thickness) + " cm, "
+      << "count: " << hitCount->GetValue() << G4endl;
+    outfile << thickness << ";" << hitCount->GetValue() << std::endl;
+  }
+
+  outfile.close();
+}
 
 int main(int argc, char** argv)
 {
@@ -27,44 +58,35 @@ int main(int argc, char** argv)
   G4SteppingVerbose::UseBestUnit(precision);
 
   // Construct the default run manager
-  //
-  auto* runManager =
-    G4RunManagerFactory::CreateRunManager(G4RunManagerType::Default);
+  auto* runManager = G4RunManagerFactory::CreateRunManager(G4RunManagerType::Default);
 
   // Set mandatory initialization classes
-  //
   // Detector construction
   runManager->SetUserInitialization(new DetectorConstruction());
-
-  // Physics list
   G4VModularPhysicsList* physicsList = new QBBC;
-  // physicsList->SetVerboseLevel(0);
   runManager->SetUserInitialization(physicsList);
-
-  // User action initialization
   runManager->SetUserInitialization(new ActionInitialization());
 
   // Initialize visualization
-  //
   G4VisManager* visManager = new G4VisExecutive();
-  // G4VisExecutive can take a verbosity argument - see /vis/verbose guidance.
-  // G4VisManager* visManager = new G4VisExecutive("Quiet");
   visManager->Initialize();
 
   // Get the pointer to the User Interface manager
-  G4UImanager* UImanager = G4UImanager::GetUIpointer();
+  G4UImanager* uiManager = G4UImanager::GetUIpointer();
 
   runManager->Initialize();
 
   // Process macro 
   if (!ui) {
-    G4String command = "/control/execute ";
-    G4String fileName = argv[1];
-    UImanager->ApplyCommand(command+fileName);
+    G4String arg = argv[1];
+
+    if (arg == "hvl") {
+      calculateHVL(runManager, uiManager);
+    } else {
+      uiManager->ApplyCommand("/control/execute " + arg);
+    }
   } else { // interactive mode
-    //UImanager->ApplyCommand("/control/execute init_vis.mac");
-    runManager->BeamOn(1);
-    UImanager->ApplyCommand("/control/execute vis.mac");
+    uiManager->ApplyCommand("/control/execute vis.mac");
     ui->SessionStart();
     delete ui;
   }
@@ -77,3 +99,4 @@ int main(int argc, char** argv)
   delete visManager;
   delete runManager;
 }
+
