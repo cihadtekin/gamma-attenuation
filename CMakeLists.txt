@@ -39,6 +39,7 @@ target_link_libraries(gammaAttenuation ${Geant4_LIBRARIES})
 # Copy all scripts to the build directory
 #
 set(GAMMA_ATTENUATION_SCRIPTS
+  interface.py
   init_vis.mac
   vis.mac
   run.mac

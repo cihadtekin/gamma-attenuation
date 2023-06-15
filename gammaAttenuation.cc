@@ -12,27 +12,36 @@
 
 #include "Randomize.hh"
 #include <fstream>
+#include <cstdlib>
 
 using namespace GammaAttenuation;
 
-void calculateHVL(G4RunManager * runManager, G4UImanager * uiManager)
+void calculateHVL(G4RunManager * runManager, G4UImanager * uiManager, int argc, char* argv[])
 {
   G4AccumulableManager* accumulableManager = G4AccumulableManager::Instance();
 
   std::ofstream outfile("result.csv");
-  int initialBeamCount = 10000;
-  int measurementCount = 18;
-  double min = 1, max = 10;
+
+  G4String material = argv[1];
+  G4String beamEnergyValue = argv[2];
+  G4String beamEnergyUnit = argv[3];
+  int initialBeamCount = atoi(argv[4]); // 10000
+  int measurementCount = atoi(argv[5]); // 20
+  double min = atof(argv[6]);
+  double max = atof(argv[7]);
   double deltaT = (max - min) / measurementCount;
 
   outfile << "thickness (cm);count" << std::endl;
 
-  for (size_t i = 0; i <= measurementCount; i++)
+  for (size_t i = 1; i <= measurementCount; i++)
   {
     double thickness = min + i * deltaT;
 
     uiManager->ApplyCommand("/run/initialize");
+    uiManager->ApplyCommand("/GammaAttenuation/setMaterial " + material);
     uiManager->ApplyCommand("/GammaAttenuation/setTickness " + std::to_string(thickness) + " cm");
+    uiManager->ApplyCommand("/gun/particle gamma");
+    uiManager->ApplyCommand("/gun/energy " + beamEnergyValue + " " + beamEnergyUnit);
     uiManager->ApplyCommand("/run/beamOn " + std::to_string(initialBeamCount));
 
     G4Accumulable<G4int>* hitCount = accumulableManager->GetAccumulable<G4int>("hitCount");
@@ -44,7 +53,7 @@ void calculateHVL(G4RunManager * runManager, G4UImanager * uiManager)
   outfile.close();
 }
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
   // Detect interactive mode (if no arguments) and define UI session
   G4UIExecutive* ui = nullptr;
@@ -78,13 +87,18 @@ int main(int argc, char** argv)
 
   // Process macro 
   if (!ui) {
-    G4String arg = argv[1];
+    G4String arg1 = argv[1];
 
-    if (arg == "hvl") {
-      calculateHVL(runManager, uiManager);
+    if (argc == 2) {
+      uiManager->ApplyCommand("/control/execute " + arg1);
     } else {
-      uiManager->ApplyCommand("/control/execute " + arg);
+      calculateHVL(runManager, uiManager, argc, argv);
     }
+    // if (arg == "hvl") {
+    //   calculateHVL(runManager, uiManager);
+    // } else {
+    //   uiManager->ApplyCommand("/control/execute " + arg);
+    // }
   } else { // interactive mode
     uiManager->ApplyCommand("/control/execute vis.mac");
     ui->SessionStart();
