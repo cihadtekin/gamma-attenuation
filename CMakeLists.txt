@@ -40,6 +40,8 @@ target_link_libraries(gammaAttenuation ${Geant4_LIBRARIES})
 #
 set(GAMMA_ATTENUATION_SCRIPTS
   interface.py
+  mittag_leffler.py
+  conner1970.csv
   init_vis.mac
   vis.mac
   run.mac
