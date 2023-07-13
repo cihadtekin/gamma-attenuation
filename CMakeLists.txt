@@ -42,6 +42,8 @@ set(GAMMA_ATTENUATION_SCRIPTS
   interface.py
   mittag_leffler.py
   conner1970.csv
+  max-thickness.csv
+  min-thickness.csv
   init_vis.mac
   vis.mac
   run.mac

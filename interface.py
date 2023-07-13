@@ -3,26 +3,35 @@ import pandas as pd
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import subprocess
-from mittag_leffler import solve_ml_for_alpha
+from mittag_leffler import solve_ml_for_alpha, mittag_leffler, mittag_leffler_basic
 import periodictable as pt 
 import traceback
 import logging
 from pathlib import Path
+from labellines import labelLine, labelLines
+import os
+from IPython.display import display, HTML
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
 
 Path("beam-counts").mkdir(parents=True, exist_ok=True)
 
 COUNTS_DIR="beam-counts/"
 BEAM_COUNT=10000
-ALL_OUTS={}
+OUT={}
 LNOFANHALF=np.log(0.5)
 RESULTCSV="result.csv"
+
 EXPERIMENTAL_DATA=pd.read_csv("conner1970.csv", sep=";", index_col=0)
+MIN_THICKNESS_DATA=pd.read_csv("min-thickness.csv", sep=";", index_col=0)
+MAX_THICKNESS_DATA=pd.read_csv("max-thickness.csv", sep=";", index_col=0)
 
 element_names = list(EXPERIMENTAL_DATA.index)
-beam_energies = list(EXPERIMENTAL_DATA.columns)[2:]
+beam_energies = list(EXPERIMENTAL_DATA.columns)
 
-# element_names = ["zinc"]
-# beam_energies = ["279.12"]
+# element_names = ["beryllium"]
+# beam_energies = ["88.09"]
 
 element_properties = {}
 for el in pt.elements:
@@ -36,70 +45,132 @@ def linear(x, Mu):
 # Acquire the simulation data for all elements/energies
 if False:
   for element_name in element_names:
-    EL=element_properties[element_name]
-    ALL_OUTS[EL.symbol]={}
-    df=None
-    print("sim:", EL.name)
+    print("sim:", element_name)
+    dir = COUNTS_DIR + element_name + "/"
+    Path(dir).mkdir(parents=True, exist_ok=True)
 
     for beam_energy in beam_energies:
-      min_thickness = EXPERIMENTAL_DATA["min"][EL.name]
-      max_thickness = EXPERIMENTAL_DATA["max"][EL.name]
       try:
         subprocess.run([
           "./gammaAttenuation",
-          "G4_" + EL.symbol,
+          "G4_" + element_properties[element_name].symbol,
           beam_energy, "keV",
           str(BEAM_COUNT),
           "40",  # measurement count 
-          str(min_thickness),
-          str(max_thickness)
+          str(MIN_THICKNESS_DATA[beam_energy][element_name]),
+          str(MAX_THICKNESS_DATA[beam_energy][element_name])
         ], capture_output=True)
-        beam_counts = pd.read_csv(RESULTCSV, sep=";", index_col=0)
-        beam_counts.columns = [beam_energy]
-        if df is None:
-          df = beam_counts
-        else:
-          df = df.join(beam_counts)
+        os.rename(RESULTCSV, dir + beam_energy + ".csv")
       except:
         print("error while running sim:", element_name, beam_energy)
         logging.error(traceback.format_exc()) 
 
-    try:
-      df.to_csv(COUNTS_DIR + EL.name + ".csv", sep = ";")
-    except:
-      print("error while writing sim results to file:", element_name, beam_energy)
-      logging.error(traceback.format_exc()) 
+if True:
+  for element_name in element_names:
+    el=element_properties[element_name]
+    ind=el.name + " (" + str(el.mass) + ")"
+    OUT[ind] = {}
 
-for element_name in element_names:
-  EL=element_properties[element_name]
-  ALL_OUTS[EL.symbol] = {}
+    for beam_energy in beam_energies:
+      sim_file = COUNTS_DIR + el.name + "/" + beam_energy + ".csv"
+      if not Path(sim_file).exists():
+        continue
 
-  for beam_energy in beam_energies:
-    try:
-      exp_Mu = EXPERIMENTAL_DATA[beam_energy][EL.name]
-      sim_data = pd.read_csv(COUNTS_DIR + EL.name + ".csv", sep=";", index_col=0)[beam_energy]
-      sim_linear_data = -np.log(sim_data[sim_data > 0]/BEAM_COUNT)
-      [sim_Mu] = curve_fit(linear, sim_linear_data.index.values, sim_linear_data.values)[0]
-      sim_HVL = -LNOFANHALF/sim_Mu
+      try:
+        exp_Mu = EXPERIMENTAL_DATA[beam_energy][el.name]
+        sim_data = pd.read_csv(sim_file, sep=";", index_col=0)["count"]
+        sim_linear_data = -np.log(sim_data[sim_data > 0]/BEAM_COUNT)
+        [sim_Mu] = curve_fit(linear, sim_linear_data.index.values, sim_linear_data.values)[0]
+        sim_HVL = -LNOFANHALF/sim_Mu
 
-      # calculate alpha
-      Mux = exp_Mu * sim_HVL * EL.density
-      alpha = solve_ml_for_alpha(0.5, Mux)
+        # calculate alpha
+        Mux = exp_Mu * sim_HVL * el.density
+        alpha = solve_ml_for_alpha(0.5, Mux)
 
-      ALL_OUTS[EL.symbol][beam_energy] = {
-        "alpha": alpha
-      }
-    except:
-      print("error on:", element_name, beam_energy)
-      logging.error(traceback.format_exc())
+        OUT[ind][beam_energy] = {
+          "sim_Mu": sim_Mu / el.density,
+          "sim_HVL": sim_HVL * el.density,
+          "exp_Mu": exp_Mu,
+          "alpha": alpha,
+          "density": el.density,
+          "sim_data": sim_data
+        }
+      except:
+        print("error on:", element_name, beam_energy)
+        logging.error(traceback.format_exc())
+  
+if False:
+  alpha_dict = {}
+  sim_Mu_dict = {}
+  exp_Mu_dict = {}
+  for element in OUT:
+    alpha_dict[element] = {}
+    sim_Mu_dict[element] = {}
+    exp_Mu_dict[element] = {}
+    for beam in OUT[element]:
+      alpha_dict[element][beam] = OUT[element][beam]["alpha"]
+      sim_Mu_dict[element][beam] = OUT[element][beam]["sim_Mu"]
+      exp_Mu_dict[element][beam] = OUT[element][beam]["exp_Mu"]
+  alpha_df = pd.DataFrame(alpha_dict)
+
+  print("deneysel azaltma katsayıları (cm^2/g)")
+  display(pd.DataFrame(exp_Mu_dict).transpose())
+
+  print("simülasyondan bulunan azaltma katsayıları (cm^2/g)")
+  display(pd.DataFrame(sim_Mu_dict).transpose())
+
+  print("hesaplanan tüm kesirsel alfa değerleri")
+  display(alpha_df.transpose())
+
+  energy_alpha_plot = alpha_df.plot(figsize=(20, 12), marker="o", xlabel="Beam Energy (keV)", ylabel="Alpha")
+  a = labelLines(energy_alpha_plot.get_lines())
+  print("alpha vs gamma energy")
+  display(energy_alpha_plot.figure)
+  plt.close()
+
+  mass_alpha_plot = alpha_df.transpose().plot(figsize=(20, 12), marker="o", xlabel="Element Mass", ylabel="Alpha")
+  a = labelLines(mass_alpha_plot.get_lines())
+  print("alpha vs element mass")
+  display(mass_alpha_plot.figure)
+  plt.close()
+
+  # hide input
+  display(HTML("<script>document.querySelector('.jp-Cell-inputWrapper').remove()</script>"))
+
+
+# x = np.arange(0.01, 1, 0.01)
+# y = np.exp(-x)
+# plt.plot(x,y)
+# aValues = np.arange(0.1, 1, 0.1)
+# for a in aValues:
+#   y = mittag_leffler_basic(-(x)**a, a)
+#   plt.plot(x,y)
+
+# result = OUT["beryllium (9.012182)"]["88.09"]
+# MuX = result["sim_HVL"] * result["exp_Mu"]
+# alpha = result["alpha"]
+# mittag_leffler(-1 * MuX ** alpha, alpha)
+
+# result = OUT["beryllium (9.012182)"]["88.09"]
+# MuX = result["sim_HVL"] * result["sim_Mu"]
+# alpha = 1
+# mittag_leffler(-1 * MuX ** alpha, alpha)
+
+# result = OUT["thorium (232.0381)"]["208.36"]
+# sim_data = result["sim_data"]
+# alphas = []
+# for thickness in sim_data.index:
+#   MuX = thickness * result["exp_Mu"] * result["density"]
+#   alpha = solve_ml_for_alpha(sim_data[thickness]/10000, MuX)
+#   alphas.append(alpha)
 
 # for element_name in element_names:
 #   EL=element_properties[element_name]
-#   ALL_OUTS[EL.symbol] = {}
+#   OUT[EL.symbol] = {}
 #   for beam_energy in beam_energies:
 #     try:
 #       OUT={"exp_Mu": EXPERIMENTAL_DATA[beam_energy]["aluminum"]}
-#       ALL_OUTS[EL.symbol][beam_energy] = OUT
+#       OUT[EL.symbol][beam_energy] = OUT
 #       OUT["sim_data"] = pd.read_csv(RESULTCSV, sep=";", index_col=0)
 #       data = OUT["sim_data"].copy()
 #       OUT["sim_linear_data "] = data
@@ -149,3 +220,4 @@ for element_name in element_names:
 #print("Mu2:", Mu2, "cm-1", ("(" + str(Mu2/EL.density) + " cm2/g)") if EL.density else "")
 #print("I02 (calculated):", I02)
 #plt.show()
+

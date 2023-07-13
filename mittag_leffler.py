@@ -1,13 +1,5 @@
 import numpy as np
 from scipy.special import gamma
-import numfracpy
-
-def ml(z, a):
-    """Mittag-Leffler function
-    """
-    k = np.arange(100).reshape(-1, 1)
-    E = z**k / gamma(a*k + 1)
-    return np.sum(E, axis=0)
 
 def solve_ml_for_alpha(result, Mux, k=0.1, precision=0.0001, max_iteration = 100000):
   i = 0
@@ -19,7 +11,7 @@ def solve_ml_for_alpha(result, Mux, k=0.1, precision=0.0001, max_iteration = 100
     if j > max_iteration:
       raise Exception("Exceeded max_iteration: " + str(max_iteration))
     alpha = start_from + (i * k if i * k > 0 else 0.00000000001)
-    val = float(Mittag_Leffler_one(-(Mux**alpha), alpha))
+    val = float(mittag_leffler_basic(-(Mux**alpha), alpha))
     if np.abs((result - val) / result) < precision:
       return alpha
     diff = val - result
@@ -32,8 +24,33 @@ def solve_ml_for_alpha(result, Mux, k=0.1, precision=0.0001, max_iteration = 100
       prev = diff
       i += 1
 
-################Mittag-Leffler functions
+def mittag_leffler_basic(z, a):
+  k = np.arange(100).reshape(-1, 1)
+  E = z**k / gamma(a*k + 1)
+  return np.sum(E, axis=0)
 
+def mittag_leffler(z, alpha, beta=1., gama=1.):
+  eps = np.finfo(np.float64).eps
+  if np.real(alpha) <= 0 or np.real(gama) <= 0 or np.imag(alpha) != 0. \
+    or np.imag(beta) != 0. or np.imag(gama) != 0.:
+    raise ValueError('ALPHA and GAMA must be real and positive. BETA must be real.')
+  if np.abs(gama-1.) > eps:
+    if alpha > 1.:
+      raise ValueError('GAMMA != 1 requires 0 < ALPHA < 1')
+    if (np.abs(np.angle(np.repeat(z, np.abs(z) > eps))) <= alpha*np.pi).any():
+      raise ValueError('|Arg(z)| <= alpha*pi')
+  return np.vectorize(ml_, [np.float64])(z, alpha, beta, gama)
+
+def ml_(z, alpha, beta, gama):
+  # Target precision 
+  log_epsilon = np.log(1.e-15)
+  # Inversion of the LT
+  if np.abs(z) < 1.e-15:
+    return 1/gamma(beta)
+  else:
+    return LTInversion(1, z, alpha, beta, gama, log_epsilon)
+
+################Mittag-Leffler functions
 def LTInversion(t,Lambda,alpha,beta,gama,log_epsilon):
   # Evaluation of the relevant poles
   theta = np.angle(Lambda)
@@ -238,8 +255,3 @@ def OptimalParam_RU(t, phi_s_star_j, pj, log_epsilon):
       Nj =float('inf') 
       hj = 0
   return muj, hj, Nj
-
-######
-
-def Mittag_Leffler_one(z,alpha):
-  return LTInversion(1,z,alpha,1,1,1e-15)
