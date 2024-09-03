@@ -25,6 +25,7 @@ def solve_ml_for_alpha(result, Mux, k=0.1, precision=0.0001, max_iteration = 100
       i += 1
 
 def mittag_leffler_basic(z, a):
+  # TODO: 100'ü değiştirip farklı değerler nasıl etkiliyor: 10, 100, 1000, karşılaştır
   k = np.arange(100).reshape(-1, 1)
   E = z**k / gamma(a*k + 1)
   return np.sum(E, axis=0)

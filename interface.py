@@ -8,9 +8,17 @@ import periodictable as pt
 import traceback
 import logging
 from pathlib import Path
-from labellines import labelLine, labelLines
+#from labellines import labelLine, labelLines
 import os
-from IPython.display import display, HTML
+#from IPython.display import display, HTML
+from scipy.special import gamma
+
+#Locale settings
+import locale
+# Set to German locale to get comma decimal separater
+locale.setlocale(locale.LC_NUMERIC, "de_DE")
+# Tell matplotlib to use the locale we set above
+plt.rcParams['axes.formatter.use_locale'] = True
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -68,7 +76,8 @@ if False:
 if True:
   for element_name in element_names:
     el=element_properties[element_name]
-    ind=el.name + " (" + str(el.mass) + ")"
+    #ind=el.name + " (" + str(el.mass) + ")"
+    ind=el.name
     OUT[ind] = {}
 
     for beam_energy in beam_energies:
@@ -78,22 +87,27 @@ if True:
 
       try:
         exp_Mu = EXPERIMENTAL_DATA[beam_energy][el.name]
+        exp_HVL = -LNOFANHALF/exp_Mu
         sim_data = pd.read_csv(sim_file, sep=";", index_col=0)["count"]
         sim_linear_data = -np.log(sim_data[sim_data > 0]/BEAM_COUNT)
         [sim_Mu] = curve_fit(linear, sim_linear_data.index.values, sim_linear_data.values)[0]
+        sim_Mu = sim_Mu / el.density
         sim_HVL = -LNOFANHALF/sim_Mu
 
         # calculate alpha
-        Mux = exp_Mu * sim_HVL * el.density
+        # TODO: Mu ve HVL için tam tersini yap ve alfa değerlerini karşılaştır (değişiyor mu).
+        Mux = exp_HVL * sim_Mu
         alpha = solve_ml_for_alpha(0.5, Mux)
 
         OUT[ind][beam_energy] = {
-          "sim_Mu": sim_Mu / el.density,
-          "sim_HVL": sim_HVL * el.density,
+          "sim_Mu": sim_Mu,
+          "sim_HVL": sim_HVL,
           "exp_Mu": exp_Mu,
+          "exp_HVL": exp_HVL,
           "alpha": alpha,
           "density": el.density,
-          "sim_data": sim_data
+          "sim_data": sim_data,
+          "sim_linear_data": sim_linear_data
         }
       except:
         print("error on:", element_name, beam_energy)
@@ -138,18 +152,153 @@ if False:
   display(HTML("<script>document.querySelector('.jp-Cell-inputWrapper').remove()</script>"))
 
 
-# x = np.arange(0.01, 1, 0.01)
-# y = np.exp(-x)
-# plt.plot(x,y)
-# aValues = np.arange(0.1, 1, 0.1)
-# for a in aValues:
-#   y = mittag_leffler_basic(-(x)**a, a)
-#   plt.plot(x,y)
+if True:
+  ALPHAS_BY_ELEMENT_DIR = "alphas-by-element"
+  ALPHAS_BY_GAMMA_DIR = "alphas-by-gama"
+  Path(ALPHAS_BY_ELEMENT_DIR).mkdir(parents=True, exist_ok=True)
+  Path(ALPHAS_BY_GAMMA_DIR).mkdir(parents=True, exist_ok=True)
+
+  plt.rcParams['text.usetex'] = True
+  plt.rcParams['font.size'] = 32
+  plt.rcParams['mathtext.fontset'] = 'stix'
+  plt.rcParams['font.family'] = 'STIXGeneral'
+
+  fig, ax = (None, None)
+  def newPlot(ylabel = "$y$", xlabel = "$x$"):
+    global fig, ax
+    fig, ax = plt.subplots(figsize=(20, 12), tight_layout=True)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+  def plot(x, y, path, label = None):
+    [line] = ax.plot(x, y, color="black", marker="o")
+    color = line.get_color()
+    if label:
+      ax.annotate(
+        label,
+        xy = (x[-1], y[-1]),
+        xytext = (1.02*x[-1], y[-1]),
+        color = color
+      )
+    plt.savefig(path)
+
+  # experimental Mu, alpha, HVL tables
+  if True:
+    exp_mu_table = []
+    exp_HVL_table = []
+    exp_mu_table.append([""] + list(map(lambda en: en.replace(".", ","), beam_energies)))
+    exp_HVL_table.append([""] + list(map(lambda en: en.replace(".", ","), beam_energies)))
+    sim_mu_table = []
+    sim_HVL_table = []
+    sim_mu_table.append([""] + list(map(lambda en: en.replace(".", ","), beam_energies)))
+    sim_HVL_table.append([""] + list(map(lambda en: en.replace(".", ","), beam_energies)))
+    alpha_table = []
+    alpha_table.append([""] + list(map(lambda en: en.replace(".", ","), beam_energies)))
+
+    for element in element_names:
+      el = element_properties[element]
+
+      exp_mu_table_row = ["$" + "_{" + str(el.number) + "}" + el.symbol + "$"]
+      exp_HVL_table_row = ["$" + "_{" + str(el.number) + "}" + el.symbol + "$"]
+      exp_mu_table.append(exp_mu_table_row)
+      exp_HVL_table.append(exp_HVL_table_row)
+      sim_mu_table_row = ["$" + "_{" + str(el.number) + "}" + el.symbol + "$"]
+      sim_HVL_table_row = ["$" + "_{" + str(el.number) + "}" + el.symbol + "$"]
+      sim_mu_table.append(sim_mu_table_row)
+      sim_HVL_table.append(sim_HVL_table_row)
+      alpha_table_row = ["$" + "_{" + str(el.number) + "}" + el.symbol + "$"]
+      alpha_table.append(alpha_table_row)
+
+      for beam in beam_energies:
+        exp_mu_table_row.append("{:.4f}".format(OUT[element][beam]["exp_Mu"]).replace(".", ","))
+        exp_HVL_table_row.append("{:.3f}".format(OUT[element][beam]["exp_HVL"]).replace(".", ","))
+        sim_mu_table_row.append("{:.4f}".format(OUT[element][beam]["sim_Mu"]).replace(".", ","))
+        sim_HVL_table_row.append("{:.3f}".format(OUT[element][beam]["sim_HVL"]).replace(".", ","))
+        alpha_table_row.append("{:.4f}".format(OUT[element][beam]["alpha"]).replace(".", ","))
+
+    # print("\\\\\n".join(list(map(lambda row: "&".join(row), exp_mu_table))))
+    # print("\\\\\n".join(list(map(lambda row: "&".join(row), exp_HVL_table))))
+    # print("\\\\\n".join(list(map(lambda row: "&".join(row), sim_mu_table))))
+    # print("\\\\\n".join(list(map(lambda row: "&".join(row), sim_HVL_table))))
+    print("\\\\\n".join(list(map(lambda row: "&".join(row), alpha_table))))
+  
+  alphas_by_gamma = {}
+  for element in element_names:
+    el = element_properties[element]
+    alphas_by_element = []
+
+    for beam in beam_energies:
+      item = OUT[element][beam]
+      alphas_by_element.append(item["alpha"])
+      if beam not in alphas_by_gamma:
+        alphas_by_gamma[beam] = []
+      alphas_by_gamma[beam].append(item["alpha"])
+
+      # all props table
+      if False:
+        print(""
+          + "$" + "_{" + str(el.number) + "}" + el.symbol + "$&"
+          + "{:.2f}".format(float(item["beam"])) + "&"
+          + "{:.5f}".format(item["sim_Mu"]) + "&"
+          + "{:.5f}".format(item["exp_Mu"]) + "&"
+          + "{:.5f}".format(item["exp_HVL"]) + "&"
+          + "{:.5f}".format(item["alpha"])
+          + "\\\\"
+        )
+
+      # linear mu graphs
+      if False:
+        newPlot("$ln\\left(\\frac{I(x)}{I_0}\\right)$", "$x$")
+        sim_linear_data = item["sim_linear_data"]
+        plot(
+          sim_linear_data.index.values,
+          sim_linear_data.values,
+          COUNTS_DIR + "/" + element + "/mu-" + beam + ".png"
+        )
+
+    # alpha graphs by element
+    if False:
+      el = element_properties[element]
+      if False:
+        print(f'''\\begin{{figure}}[H]
+  \\centering
+  \\includegraphics[scale=0.2]{{{ALPHAS_BY_ELEMENT_DIR}/{element}.png}}
+  \\caption{{$_{{{el.number}}} {el.symbol}$ için $\\alpha$'nın gama enerjisine göre değişimi}}
+  \\label{{fig:alpha-by-element-{element}}}
+\\end{{figure}}'''
+        )
+      if False:
+        newPlot("$\\alpha$", "Gama enerjisi $(keV)$")
+        plot(
+          list(map(lambda e: float(e), beam_energies)),
+          alphas_by_element,
+          ALPHAS_BY_ELEMENT_DIR + "/" + element + ".png"
+        )
+
+  # alpha graphs by gamma
+  if False:
+    for beam in beam_energies:
+      if False:
+        print(f'''\\begin{{figure}}[H]
+  \\centering
+  \\includegraphics[scale=0.2]{{{ALPHAS_BY_GAMMA_DIR}/{beam}.png}}
+  \\caption{{{beam.replace(".", ",")} keV enerjili gama ışınları için $\\alpha$'nın materyale göre değişimi}}
+  \\label{{fig:alpha-by-gamma-{beam}}}
+\\end{{figure}}'''
+        )
+      if False:
+        plt.rcParams['font.size'] = 22
+        newPlot("$\\alpha$", "Materyal")
+        plot(
+          list(map(lambda e: "$" + "_{" + str(element_properties[e].number) + "}" + element_properties[e].symbol + "$", element_names)),
+          alphas_by_gamma[beam],
+          ALPHAS_BY_GAMMA_DIR + "/" + beam + ".png"
+        )
+
 
 # result = OUT["beryllium (9.012182)"]["88.09"]
-# MuX = result["sim_HVL"] * result["exp_Mu"]
+# MuX = result["sim_Mu"] * result["exp_HVL"]
 # alpha = result["alpha"]
-# mittag_leffler(-1 * MuX ** alpha, alpha)
+# mittag_leffler_basic(-1 * (MuX ** alpha), alpha)
 
 # result = OUT["beryllium (9.012182)"]["88.09"]
 # MuX = result["sim_HVL"] * result["sim_Mu"]
